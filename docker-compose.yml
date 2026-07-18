@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: nyumba-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-nyumba}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-nyumba}
+      POSTGRES_DB: ${DB_NAME:-nyumba}
+    ports:
+      - '${DB_PORT:-5432}:5432'
+    volumes:
+      - nyumba_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USERNAME:-nyumba} -d ${DB_NAME:-nyumba}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  nyumba_pgdata:
