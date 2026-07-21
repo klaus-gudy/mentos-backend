@@ -1,5 +1,7 @@
+import { propertiesSeeder } from './properties.seeder';
 import { rolesSeeder } from './roles.seeder';
 import type { Seeder } from './seed';
+import { unitsSeeder } from './units.seeder';
 import { usersSeeder } from './users.seeder';
 
 /**
@@ -16,4 +18,4 @@ import { usersSeeder } from './users.seeder';
  *
  * Source data is ported from mentos-frontend/lib/seed.ts.
  */
-export const seeders: Seeder[] = [rolesSeeder, usersSeeder];
+export const seeders: Seeder[] = [rolesSeeder, usersSeeder, propertiesSeeder, unitsSeeder];

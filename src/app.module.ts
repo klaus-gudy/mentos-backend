@@ -9,7 +9,9 @@ import { validateEnv } from './config/env.validation';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { MailModule } from './mail/mail.module';
+import { PropertiesModule } from './properties/properties.module';
 import { RolesModule } from './roles/roles.module';
+import { UnitsModule } from './units/units.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -26,7 +28,8 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     UsersModule,
     RolesModule,
-    // PropertiesModule, UnitsModule (S3)
+    PropertiesModule,
+    UnitsModule,
     // TenantsModule, LeasesModule (S4)
     // InvoicesModule, PaymentsModule (S5)
     // MaintenanceModule, TechniciansModule (S6)
