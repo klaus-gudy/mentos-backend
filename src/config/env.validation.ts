@@ -1,4 +1,4 @@
-import { plainToInstance } from 'class-transformer';
+import { plainToInstance, Type } from 'class-transformer';
 import {
   IsEnum,
   IsNotEmpty,
@@ -20,6 +20,7 @@ class EnvironmentVariables {
   @IsEnum(Environment)
   NODE_ENV: Environment = Environment.Development;
 
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   @Max(65535)
@@ -37,6 +38,7 @@ class EnvironmentVariables {
   @IsNotEmpty()
   DB_HOST: string;
 
+  @Type(() => Number)
   @IsNumber()
   DB_PORT: number;
 
