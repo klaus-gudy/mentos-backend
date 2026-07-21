@@ -17,5 +17,34 @@ services:
       timeout: 5s
       retries: 5
 
+  # Database browser — inspect tables, browse rows, run SQL.
+  #
+  # Open it with the driver, host, user and database pre-filled:
+  #   http://localhost:8080/?pgsql=host.docker.internal&username=nyumba&db=nyumba
+  # (the bare http://localhost:8080 works too, but the System dropdown defaults
+  # to MySQL — Adminer ignores ADMINER_DEFAULT_DRIVER, so pick PostgreSQL by hand.)
+  #
+  # Which Postgres it reaches is set by ADMINER_TARGET:
+  #   db                     the container above (the default)
+  #   host.docker.internal   a Postgres running on your host, e.g. a Homebrew
+  #                          `postgresql@18` service
+  #
+  # `profiles` keeps it out of a plain `docker compose up` — start it on demand:
+  #   docker compose --profile tools up -d adminer
+  adminer:
+    image: adminer:5.4.2
+    container_name: nyumba-adminer
+    restart: unless-stopped
+    profiles: ['tools']
+    ports:
+      - '${ADMINER_PORT:-8080}:8080'
+    environment:
+      ADMINER_DEFAULT_SERVER: ${ADMINER_TARGET:-db}
+      ADMINER_DESIGN: pepa-linha-dark
+    # Lets the container reach a Postgres on the host when ADMINER_TARGET is
+    # host.docker.internal. Harmless when pointing at the `db` service.
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+
 volumes:
   nyumba_pgdata:

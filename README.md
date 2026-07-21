@@ -17,6 +17,31 @@ npm run start:dev             # API on :4000, Swagger on :4000/docs
 
 Health check: `GET http://localhost:4000/api/health`
 
+## Browsing the database (Adminer)
+
+```bash
+docker compose --profile tools up -d adminer
+```
+
+Then open the pre-filled link — driver, host, user and database are all set, so
+only the password (`DB_PASSWORD`, `nyumba` by default) is needed:
+
+**http://localhost:8080/?pgsql=host.docker.internal&username=nyumba&db=nyumba**
+
+The `tools` profile keeps Adminer out of a plain `docker compose up`. Point it at
+a different Postgres with `ADMINER_TARGET` in `.env`:
+
+| Value | Reaches |
+|-------|---------|
+| `db` | the `db` service in `docker-compose.yml` (default) |
+| `host.docker.internal` | a Postgres installed on your host, e.g. `brew services start postgresql@18` |
+
+> Only run **one** of those two at a time — both bind `:5432`, and a host
+> Postgres wins for `localhost` connections while the container claims the
+> external interface. That split is confusing to debug.
+
+Stop it with `docker compose --profile tools down`.
+
 ## Auth
 
 Every route requires a bearer access token unless it is marked `@Public()`;
