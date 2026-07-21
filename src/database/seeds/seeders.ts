@@ -1,4 +1,6 @@
+import { rolesSeeder } from './roles.seeder';
 import type { Seeder } from './seed';
+import { usersSeeder } from './users.seeder';
 
 /**
  * Dependency-ordered seeder registry. Entities land per sprint; append their
@@ -14,4 +16,4 @@ import type { Seeder } from './seed';
  *
  * Source data is ported from mentos-frontend/lib/seed.ts.
  */
-export const seeders: Seeder[] = [];
+export const seeders: Seeder[] = [rolesSeeder, usersSeeder];

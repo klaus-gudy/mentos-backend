@@ -37,12 +37,23 @@ async function bootstrap() {
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Nyumba PMS API')
-    .setDescription('Backend for the Mentos / Nyumba property management system')
+    .setDescription(
+      'Backend for the Mentos / Nyumba property management system.\n\n' +
+        '**Signing in:** `POST /api/auth/login` (seeded accounts use password `Nyumba#2026`), ' +
+        'then paste the returned `accessToken` into **Authorize** above. ' +
+        'On an empty database use `POST /api/auth/register` to create the first Super Admin.\n\n' +
+        'Invite and password-reset tokens are logged to the server console and returned as ' +
+        '`devToken` outside production, so those flows can be completed here.',
+    )
     .setVersion('0.1.0')
-    .addBearerAuth()
+    .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' })
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('docs', app, document);
+  SwaggerModule.setup('docs', app, document, {
+    // Keeps the pasted token across reloads so a simulation run isn't
+    // interrupted by re-authorizing after every refresh.
+    swaggerOptions: { persistAuthorization: true },
+  });
 
   const port = config.get<number>('port') ?? 4000;
   await app.listen(port);

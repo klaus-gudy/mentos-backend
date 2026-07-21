@@ -55,10 +55,40 @@ in the response DTO/serializer we compute the display shape so the contract hold
   by both the Nest module and the TypeORM CLI (migrations).
 - Seeds run through an idempotent, dependency-ordered runner (`npm run seed`).
 
-## 6. Auth (Sprint 2, recorded here for context)
+## 6. Auth & RBAC (Sprint 2 — implemented)
 
-- Self-hosted: bcrypt password hashes, JWT access + refresh tokens.
-- RBAC from the frontend's `permCatalog`: permission key = `resource.action`
-  (e.g. `lease.create`, `invoice.read`). A `@Permissions()` decorator + guard
-  enforce them; roles carry a `perms: string[]`.
-- Audit: an interceptor writes an `AuditEntry` on mutating requests.
+- **Passwords:** bcrypt, cost 12 (`BCRYPT_ROUNDS`). `passwordHash` is nullable —
+  invited users have none until they redeem their invite.
+- **Access tokens:** short-lived JWTs (`JWT_ACCESS_TTL`, default 15 min) carrying
+  `{ sub, email, tv }`. The user is re-read from the database on every request,
+  so role edits and suspensions apply immediately rather than at token expiry.
+- **`tokenVersion` (`tv`):** bumped on password change, password reset,
+  suspension and `logout-all`. A token whose `tv` is stale is rejected, which
+  closes the window where an access token outlives the event that should have
+  killed it.
+- **Refresh tokens:** opaque 256-bit random values, stored as SHA-256 hashes
+  (not bcrypt — they are already high-entropy, so there is nothing to
+  brute-force). Rotating: redeeming one revokes it and issues a successor.
+  Presenting a spent token means it was used twice, so the user's entire
+  session family is revoked.
+- **Invite / reset tokens:** the same hashed, single-use, expiring mechanism,
+  distinguished by a `purpose` enum. Issuing a new one retires the outstanding
+  token of that purpose.
+- **Guards:** `JwtAuthGuard` and `PermissionsGuard` are both registered as
+  `APP_GUARD`, so every route is authenticated by default. Opt out with
+  `@Public()`; opt into RBAC with `@Permissions('resource.action')`.
+- **Permission catalog:** `src/common/rbac/perm-catalog.ts` is the single source
+  of truth (ported from the frontend's `permCatalog`, 15 resources / 45 keys).
+  Role updates validate every key against it. Built-in role definitions live in
+  `src/roles/built-in-roles.ts`, shared by the seeder and bootstrap registration
+  so both produce an identical set — note their codes (`role-super`, `role-pm`)
+  are literals the frontend keys on, not name slugs.
+- **Account creation:** `POST /auth/register` is a bootstrap path, open only
+  while the system has zero users; the account it creates becomes Super Admin.
+  Thereafter accounts come from admin invites.
+- **Enumeration:** login and forgot-password never reveal whether an address is
+  registered — login always runs a bcrypt comparison (against a dummy hash when
+  the user is missing) so timing does not leak either.
+- **Mail:** `MailService` is a logging stub; swapping in a transport means
+  reimplementing that class alone.
+- Audit: an interceptor writes an `AuditEntry` on mutating requests *(S7)*.

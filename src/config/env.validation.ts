@@ -61,7 +61,26 @@ class EnvironmentVariables {
   @IsString()
   @IsOptional()
   JWT_REFRESH_SECRET: string;
+
+  @IsString()
+  @IsOptional()
+  APP_URL = 'http://localhost:4317';
+
+  @Type(() => Number)
+  @IsNumber()
+  @Min(10)
+  @Max(15)
+  @IsOptional()
+  BCRYPT_ROUNDS = 12;
 }
+
+/** Secrets that must never reach production with their development values. */
+const PLACEHOLDER_SECRETS = [
+  'change-me-access',
+  'change-me-refresh',
+  'dev-access-secret-change-me',
+  'dev-refresh-secret-change-me',
+];
 
 export function validateEnv(config: Record<string, unknown>) {
   // Treat empty-string env vars as absent so class defaults apply. Some shells
@@ -77,5 +96,18 @@ export function validateEnv(config: Record<string, unknown>) {
         errors.map((e) => '  - ' + Object.values(e.constraints ?? {}).join(', ')).join('\n'),
     );
   }
+
+  // Fail fast rather than signing production tokens with a public default.
+  if (validated.NODE_ENV === Environment.Production) {
+    const weak = (['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'] as const).filter(
+      (key) => !validated[key] || PLACEHOLDER_SECRETS.includes(validated[key]),
+    );
+    if (weak.length > 0) {
+      throw new Error(
+        `Invalid environment configuration:\n  - ${weak.join(', ')} must be set to a strong, non-default value in production`,
+      );
+    }
+  }
+
   return validated;
 }
