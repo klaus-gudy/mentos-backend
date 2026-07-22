@@ -1,43 +1,55 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
-import { Property, PropertyStatus, PropertyType } from '../entities/property.entity';
+import { Type } from 'class-transformer';
+import {
+  ArrayUnique,
+  IsArray,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { UnitResponseDto } from '../../units/dto/unit.dto';
+import { Property, PropertyStatus, PropertyType } from '../entities/property.entity';
 
-/** Frontend-facing property shape (mentos-frontend `Property`). */
+/** Frontend-facing property shape — mirrors mentos-frontend's `Property` exactly. */
 export class PropertyResponseDto {
-  @ApiProperty({ example: 'P-1', description: 'Business code, used as id by frontend' })
+  @ApiProperty({ example: 'P-01', description: 'Business code, used as id by frontend' })
   id: string;
 
-  @ApiProperty({ example: 'Riverside Apartments' })
+  @ApiProperty({ example: 'Mwenge Apartments' })
   name: string;
 
-  @ApiProperty({ example: 'A modern apartment complex with 12 units' })
-  description: string;
+  @ApiProperty({ enum: PropertyType, example: PropertyType.Apartment })
+  type: PropertyType;
 
-  @ApiProperty({ example: '123 Main Street' })
-  address: string;
+  @ApiProperty({ example: 'Apartments', description: 'Display label derived from type' })
+  typeLabel: string;
+
+  @ApiProperty({ example: 'Residential', description: 'Residential/Commercial, derived from type' })
+  cat: 'Residential' | 'Commercial';
+
+  @ApiProperty({ example: 'Kinondoni', description: 'Neighborhood' })
+  area: string;
 
   @ApiProperty({ example: 'Dar es Salaam' })
   city: string;
 
-  @ApiProperty({ example: '10101' })
-  zipCode: string;
-
-  @ApiProperty({ enum: PropertyType, example: PropertyType.Residential })
-  type: PropertyType;
-
-  @ApiProperty({ example: 'Residential', description: 'Display label derived from type' })
-  typeLabel: string;
+  @ApiProperty({ example: 'Aziz Holdings Ltd', description: "Landlord's display name" })
+  owner: string;
 
   @ApiProperty({ enum: PropertyStatus, example: PropertyStatus.Active })
   status: PropertyStatus;
 
-  @ApiProperty({ example: 12, description: 'Count of units in this property' })
-  unitCount: number;
+  @ApiPropertyOptional({ example: 'A modern apartment complex with 12 units' })
+  description?: string;
+
+  @ApiPropertyOptional({ type: [String], example: ['Parking', '24/7 security'] })
+  amenities?: string[];
 
   @ApiPropertyOptional({
     type: [UnitResponseDto],
-    description: 'Units in this property (only in detail endpoint)',
+    description: 'Units in this property (only on the detail endpoint)',
   })
   units?: UnitResponseDto[];
 
@@ -45,14 +57,15 @@ export class PropertyResponseDto {
     return {
       id: property.code,
       name: property.name,
-      description: property.description || '',
-      address: property.address,
-      city: property.city || '',
-      zipCode: property.zipCode || '',
       type: property.type,
       typeLabel: property.typeLabel,
+      cat: property.cat,
+      area: property.area,
+      city: property.city,
+      owner: property.owner,
       status: property.status,
-      unitCount: property.unitCount,
+      description: property.description ?? '',
+      amenities: property.amenities,
       ...(includeUnits && property.units
         ? { units: property.units.map((u) => UnitResponseDto.from(u)) }
         : {}),
@@ -64,24 +77,74 @@ export class PropertyResponseDto {
   }
 }
 
+/** Mirrors mentos-frontend's `NewPropertyInput`. */
 export class CreatePropertyDto {
-  @ApiProperty({ example: 'Riverside Apartments' })
+  @ApiProperty({ example: 'Mwenge Apartments' })
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
   name: string;
 
-  @ApiPropertyOptional({ example: 'A modern apartment complex' })
+  @ApiProperty({ enum: PropertyType, example: PropertyType.Apartment })
+  @IsEnum(PropertyType)
+  type: PropertyType;
+
+  @ApiPropertyOptional({ example: 'Kinondoni', description: 'Defaults to "—" if omitted' })
   @IsString()
   @IsOptional()
-  @MaxLength(500)
+  @MaxLength(100)
+  area?: string;
+
+  @ApiPropertyOptional({ example: 'Dar es Salaam', description: 'Defaults to "Dar es Salaam"' })
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  city?: string;
+
+  @ApiPropertyOptional({ example: 'Aziz Holdings Ltd', description: 'Defaults to "—" if omitted' })
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
+  owner?: string;
+
+  @ApiPropertyOptional({ example: 'A modern apartment complex with 12 units' })
+  @IsString()
+  @IsOptional()
+  @MaxLength(1000)
   description?: string;
 
-  @ApiProperty({ example: '123 Main Street' })
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['Parking', '24/7 security'],
+    description: 'Defaults to ["Parking", "24/7 security"] if omitted or empty',
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayUnique()
+  @IsOptional()
+  @Type(() => String)
+  amenities?: string[];
+}
+
+/** Mirrors mentos-frontend's `UpdatePropertyInput`. */
+export class UpdatePropertyDto {
+  @ApiPropertyOptional({ example: 'Mwenge Apartments' })
   @IsString()
   @IsNotEmpty()
-  @MaxLength(500)
-  address: string;
+  @MaxLength(255)
+  @IsOptional()
+  name?: string;
+
+  @ApiPropertyOptional({ enum: PropertyType })
+  @IsEnum(PropertyType)
+  @IsOptional()
+  type?: PropertyType;
+
+  @ApiPropertyOptional({ example: 'Kinondoni' })
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  area?: string;
 
   @ApiPropertyOptional({ example: 'Dar es Salaam' })
   @IsString()
@@ -89,58 +152,27 @@ export class CreatePropertyDto {
   @MaxLength(100)
   city?: string;
 
-  @ApiPropertyOptional({ example: '10101' })
+  @ApiPropertyOptional({ example: 'Aziz Holdings Ltd' })
   @IsString()
   @IsOptional()
-  @MaxLength(20)
-  zipCode?: string;
-
-  @ApiPropertyOptional({ enum: PropertyType, example: PropertyType.Residential })
-  @IsEnum(PropertyType)
-  @IsOptional()
-  type?: PropertyType;
-}
-
-export class UpdatePropertyDto {
-  @ApiPropertyOptional({ example: 'Updated Name' })
-  @IsString()
-  @IsNotEmpty()
   @MaxLength(255)
-  @IsOptional()
-  name?: string;
-
-  @ApiPropertyOptional()
-  @IsString()
-  @IsOptional()
-  @MaxLength(500)
-  description?: string;
-
-  @ApiPropertyOptional()
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(500)
-  @IsOptional()
-  address?: string;
-
-  @ApiPropertyOptional()
-  @IsString()
-  @IsOptional()
-  @MaxLength(100)
-  city?: string;
-
-  @ApiPropertyOptional()
-  @IsString()
-  @IsOptional()
-  @MaxLength(20)
-  zipCode?: string;
-
-  @ApiPropertyOptional({ enum: PropertyType })
-  @IsEnum(PropertyType)
-  @IsOptional()
-  type?: PropertyType;
+  owner?: string;
 
   @ApiPropertyOptional({ enum: PropertyStatus })
   @IsEnum(PropertyStatus)
   @IsOptional()
   status?: PropertyStatus;
+
+  @ApiPropertyOptional({ example: 'Updated description' })
+  @IsString()
+  @IsOptional()
+  @MaxLength(1000)
+  description?: string;
+
+  @ApiPropertyOptional({ type: [String], example: ['Parking', 'Gym'] })
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayUnique()
+  @IsOptional()
+  amenities?: string[];
 }

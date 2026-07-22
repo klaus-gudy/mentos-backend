@@ -92,3 +92,72 @@ in the response DTO/serializer we compute the display shape so the contract hold
 - **Mail:** `MailService` is a logging stub; swapping in a transport means
   reimplementing that class alone.
 - Audit: an interceptor writes an `AuditEntry` on mutating requests *(S7)*.
+
+## 7. Properties, Units & Tenants (Sprint 3 — implemented)
+
+- **Contract fidelity:** field shapes (not just IDs) are copied verbatim from
+  `mentos-frontend/lib/types.ts` and `lib/seed.ts` — e.g. `Property.type` is
+  the closed 5-value enum (`apartment|office|hostel|house|commercial`) with
+  `typeLabel`/`cat` **computed** in the response DTO (never stored), and
+  `Unit.type` is free text (`"2BR"`, `"Office"`…), not an enum. An earlier pass
+  at this schema drifted from the contract by working only from
+  ARCHITECTURE.md's general conventions instead of checking the frontend
+  source directly; it was rebuilt to match before Tenants landed on top of it.
+  Treat `lib/types.ts` / `lib/seed.ts` as the schema for every future entity,
+  per BACKEND_PLAN.md's core insight — read them first, not last.
+- **Unit occupancy:** `Unit.tenantId` is the FK; `Unit.status` (`vacant|occupied`)
+  is *derived* from its presence and written only by `UnitsService.occupy()` /
+  `.vacate()` — never edited directly through `PATCH /units/:code`. Leases
+  (Sprint 4) will call these two methods rather than touching status themselves.
+  `Unit.deposit` is always 2× `rent`, computed server-side on create/update;
+  clients never supply it (matching `addUnit`/`updateUnit`'s behavior).
+- **Tenant lifecycle:** onboarding always creates a `prospective` tenant with no
+  unit — occupancy is set later by a lease, not by `POST /tenants`. `since` is
+  a real date (§2) even though the frontend displays a formatted string.
+  `kin` (next-of-kin) is pre-joined server-side ("Name · Relation") from the
+  onboarding input's three fields, matching the frontend exactly, and is
+  edited as a single string thereafter.
+- **Dangling seed references:** the original frontend seed data references two
+  tenant codes ("T-08x", "T-10x") that don't exist in its own tenant roster —
+  apparent oversights in the mock. Since `tenantId` is a real FK here, those two
+  units seed `vacant` rather than pointing at a fabricated tenant.
+- **Flat vs. nested unit reads:** `GET /units` mirrors the frontend's flat
+  `api.units()` (used for client-side filtering); `GET /properties/:code/units`
+  and unit creation are nested under a property since creation needs one.
+
+## 8. Leases & the occupancy invariant (Sprint 4 — implemented)
+
+- **A lease is the sole source of truth for occupancy.** `Unit.tenantId`/`status`
+  and `Tenant.unitId`/`propertyId`/`status` are never set directly by their own
+  controllers — only `LeasesService.create()` (occupies) and `.terminate()`
+  (vacates) write them, via `UnitsService.occupy()`/`.vacate()` and
+  `TenantsService.occupyForLease()`/`.vacateForLease()`. `PATCH /units/:code`
+  and `PATCH /tenants/:code` cannot touch these fields — this is the invariant
+  the module exists to enforce: a unit is occupied *because* an active lease
+  says so, not as an independently-editable flag.
+- **Transactional writers take an `EntityManager`, not the injected repository**
+  (`occupy(manager, …)`, not `occupy(…)`) — the parameter forces every call
+  site to participate in the caller's transaction, so a failure partway through
+  `create()` (e.g. invoice generation) rolls back the unit/tenant writes too.
+  `TenantsService.blacklist()` follows the same rule for its own vacate step.
+- **Validation beyond the frontend's mock:** `createLease` in
+  `mentos-frontend/lib/api.ts` blindly overwrites occupancy with no checks.
+  The real backend rejects leasing an already-occupied unit, a tenant who
+  already holds an active/ending lease, or a blacklisted tenant — protecting
+  the invariant above, which a naive client-side mock has no reason to enforce.
+- **`daysToExpiry` is computed, never stored** (§2) — `end` minus real "today".
+  The frontend's seed hardcodes it relative to a fictional "current date"
+  (~Jul 2026); the computed value will disagree with those literals as real
+  time passes, which is correct, not a bug.
+- **Invoices are minimal in this sprint** — just enough for `createLease` to
+  auto-generate the first invoice (`InvoicesService.createForLease`, called
+  inside the same transaction). `GET /invoices` is read-only; recording
+  payments, voiding, and multi-item billing are Sprint 5, built on this table.
+  `InvoiceStatus` stores only `due|partial|paid` — `"overdue"` is computed in
+  `InvoiceResponseDto` (due date passed, balance > 0), not a stored transition.
+- **Seed data ordering:** tenants and units seed with no occupancy links; the
+  leases seeder is the only one that wires `Unit.tenantId`/`Tenant.unitId` —
+  directly via repository calls, not the service-layer transactional methods,
+  since it's inserting historical records (including L-07 "ending" and L-08
+  "ended", states `create()` can't produce for a brand-new lease) rather than
+  simulating live API calls. See `database/seeds/leases.seeder.ts`.

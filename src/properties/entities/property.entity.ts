@@ -2,10 +2,17 @@ import { Column, Entity, Index, OneToMany } from 'typeorm';
 import { BaseEntity } from '../../common/entities/base.entity';
 import { Unit } from '../../units/entities/unit.entity';
 
+/**
+ * Matches mentos-frontend's `PropertyType` exactly (lib/types.ts). Each value
+ * maps to a display label and a Residential/Commercial category — both
+ * computed in PropertyResponseDto rather than stored, per ARCHITECTURE.md §3.
+ */
 export enum PropertyType {
-  Residential = 'residential',
+  Apartment = 'apartment',
+  Office = 'office',
+  Hostel = 'hostel',
+  House = 'house',
   Commercial = 'commercial',
-  Mixed = 'mixed',
 }
 
 export enum PropertyStatus {
@@ -13,10 +20,29 @@ export enum PropertyStatus {
   Archived = 'archived',
 }
 
+/** type → typeLabel, ported from mentos-frontend/lib/api.ts PROP_TYPE_LABELS. */
+export const PROPERTY_TYPE_LABELS: Record<PropertyType, string> = {
+  [PropertyType.Apartment]: 'Apartments',
+  [PropertyType.Office]: 'Office suites',
+  [PropertyType.Hostel]: 'Hostel rooms',
+  [PropertyType.House]: 'Houses/Villas',
+  [PropertyType.Commercial]: 'Retail units',
+};
+
+/** type → cat, ported from mentos-frontend/lib/api.ts PROP_TYPE_CATS. */
+export const PROPERTY_TYPE_CATS: Record<PropertyType, 'Residential' | 'Commercial'> = {
+  [PropertyType.Apartment]: 'Residential',
+  [PropertyType.House]: 'Residential',
+  [PropertyType.Hostel]: 'Residential',
+  [PropertyType.Office]: 'Commercial',
+  [PropertyType.Commercial]: 'Commercial',
+};
+
 /**
- * A rental property — the top-level entity in the hierarchy. A property
- * contains one or more units (apartments, offices, etc). The `code` is
- * user-visible (P-01, P-02…) and serialized as `id` in responses.
+ * A rental property. `code` (P-01, P-02…) is the frontend-facing id — see
+ * ARCHITECTURE.md §1. Shape mirrors mentos-frontend's `Property` exactly:
+ * `area` is the neighborhood, `owner` is the landlord's display name (free
+ * text, not a User reference).
  */
 @Entity('properties')
 export class Property extends BaseEntity {
@@ -27,38 +53,35 @@ export class Property extends BaseEntity {
   @Column({ type: 'varchar', length: 255 })
   name: string;
 
-  @Column({ type: 'text', nullable: true })
-  description: string | null;
-
-  @Column({ type: 'text' })
-  address: string;
-
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  city: string | null;
-
-  @Column({ type: 'varchar', length: 20, nullable: true })
-  zipCode: string | null;
-
-  @Column({ type: 'enum', enum: PropertyType, default: PropertyType.Residential })
+  @Column({ type: 'enum', enum: PropertyType })
   type: PropertyType;
+
+  @Column({ type: 'varchar', length: 100 })
+  area: string;
+
+  @Column({ type: 'varchar', length: 100 })
+  city: string;
+
+  @Column({ type: 'varchar', length: 255 })
+  owner: string;
 
   @Column({ type: 'enum', enum: PropertyStatus, default: PropertyStatus.Active })
   status: PropertyStatus;
 
-  /** Total count of units in this property — denormalized for quick display. */
-  @Column({ type: 'int', default: 0 })
-  unitCount: number;
+  @Column({ type: 'text', nullable: true })
+  description: string | null;
+
+  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  amenities: string[];
 
   @OneToMany(() => Unit, (unit) => unit.property)
   units: Unit[];
 
-  /** For the frontend's property.typeLabel denormalized field. */
   get typeLabel(): string {
-    const labels: Record<PropertyType, string> = {
-      [PropertyType.Residential]: 'Residential',
-      [PropertyType.Commercial]: 'Commercial',
-      [PropertyType.Mixed]: 'Mixed',
-    };
-    return labels[this.type] || this.type;
+    return PROPERTY_TYPE_LABELS[this.type];
+  }
+
+  get cat(): 'Residential' | 'Commercial' {
+    return PROPERTY_TYPE_CATS[this.type];
   }
 }

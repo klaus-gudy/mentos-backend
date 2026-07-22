@@ -21,8 +21,9 @@ export class PropertiesController {
   @Get()
   @Permissions('property.read')
   @ApiOperation({
-    summary: 'List all active properties',
-    description: 'Returns properties without their units — use GET /{code} for details.',
+    summary: 'List all properties',
+    description:
+      'Returns every property, including archived ones, without their units — use GET /{code} for details.',
   })
   @ApiResponse({ status: 200, type: [PropertyResponseDto] })
   findAll(): Promise<PropertyResponseDto[]> {
@@ -54,10 +55,7 @@ export class PropertiesController {
   @Post(':code/archive')
   @Permissions('property.delete')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Archive a property',
-    description: 'Sets status to archived; the property is excluded from list queries.',
-  })
+  @ApiOperation({ summary: 'Archive a property', description: 'Sets status to archived.' })
   archive(@Param('code') code: string): Promise<PropertyResponseDto> {
     return this.properties.archive(code);
   }

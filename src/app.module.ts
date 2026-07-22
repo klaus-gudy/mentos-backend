@@ -8,9 +8,12 @@ import configuration from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
+import { InvoicesModule } from './invoices/invoices.module';
+import { LeasesModule } from './leases/leases.module';
 import { MailModule } from './mail/mail.module';
 import { PropertiesModule } from './properties/properties.module';
 import { RolesModule } from './roles/roles.module';
+import { TenantsModule } from './tenants/tenants.module';
 import { UnitsModule } from './units/units.module';
 import { UsersModule } from './users/users.module';
 
@@ -30,8 +33,10 @@ import { UsersModule } from './users/users.module';
     RolesModule,
     PropertiesModule,
     UnitsModule,
-    // TenantsModule, LeasesModule (S4)
-    // InvoicesModule, PaymentsModule (S5)
+    TenantsModule,
+    LeasesModule,
+    InvoicesModule,
+    // PaymentsModule, full invoice mutations (S5)
     // MaintenanceModule, TechniciansModule (S6)
     // DocumentsModule, NotificationsModule, TemplatesModule, AuditModule (S7)
     // ReportsModule (S8)
