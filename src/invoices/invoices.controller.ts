@@ -1,14 +1,9 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Permissions } from '../auth/decorators/permissions.decorator';
-import { InvoiceResponseDto } from './dto/invoice.dto';
+import { InvoiceResponseDto, UpdateInvoiceDto } from './dto/invoice.dto';
 import { InvoicesService } from './invoices.service';
 
-/**
- * Read-only for now — these rows exist because `createLease` (Sprint 4)
- * auto-generates a first invoice. Recording payments, voiding, and manual
- * invoice creation land with the full Invoices module in Sprint 5.
- */
 @ApiTags('invoices')
 @ApiBearerAuth()
 @Controller('invoices')
@@ -29,5 +24,28 @@ export class InvoicesController {
   @ApiResponse({ status: 200, type: InvoiceResponseDto })
   findOne(@Param('code') code: string): Promise<InvoiceResponseDto> {
     return this.invoices.findOne(code);
+  }
+
+  @Patch(':code')
+  @Permissions('invoice.update')
+  @ApiOperation({
+    summary: 'Edit an invoice’s line items',
+    description: 'Refused once any payment has been recorded against the invoice.',
+  })
+  @ApiResponse({ status: 200, type: InvoiceResponseDto })
+  update(@Param('code') code: string, @Body() dto: UpdateInvoiceDto): Promise<InvoiceResponseDto> {
+    return this.invoices.update(code, dto);
+  }
+
+  @Post(':code/void')
+  @Permissions('invoice.update')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Void an invoice',
+    description: 'Refused once any payment has been recorded against it.',
+  })
+  @ApiResponse({ status: 200, type: InvoiceResponseDto })
+  void(@Param('code') code: string): Promise<InvoiceResponseDto> {
+    return this.invoices.void(code);
   }
 }

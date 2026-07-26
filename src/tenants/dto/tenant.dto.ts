@@ -1,5 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
 import { Tenant, TenantStatus } from '../entities/tenant.entity';
 
 /** Frontend-facing tenant shape — mirrors mentos-frontend's `Tenant` exactly. */
@@ -28,10 +36,17 @@ export class TenantResponseDto {
   @ApiProperty({ nullable: true, example: 'U-101', description: "Occupied unit's code, or null" })
   unitId: string | null;
 
-  @ApiProperty({ nullable: true, example: 'P-01', description: "That unit's property code, or null" })
+  @ApiProperty({
+    nullable: true,
+    example: 'P-01',
+    description: "That unit's property code, or null",
+  })
   propId: string | null;
 
-  @ApiProperty({ example: '', description: 'Company name for corporate tenants; blank for individuals' })
+  @ApiProperty({
+    example: '',
+    description: 'Company name for corporate tenants; blank for individuals',
+  })
   org: string;
 
   @ApiProperty({ example: 'Pharmacist' })
@@ -81,6 +96,11 @@ export class TenantResponseDto {
  * Mirrors mentos-frontend's `NewTenantInput` exactly. Onboarding always
  * creates a `prospective` tenant with no unit — occupancy comes later from a
  * lease (Sprint 4), matching mentos-frontend's `onboardTenant`.
+ *
+ * Only `fullName` and `phone` are actually required — everything else can be
+ * filled in later from the tenant's "Contact & identity" edit form. The
+ * frontend's onboarding dialog already only gates on name + phone; this DTO
+ * used to be stricter than that and rejected the rest, which is the bug.
  */
 export class CreateTenantDto {
   @ApiProperty({ example: 'Amina Hassan' })
@@ -95,22 +115,26 @@ export class CreateTenantDto {
   @MaxLength(32)
   phone: string;
 
-  @ApiProperty({ example: 'amina.hassan@mail.co.tz' })
+  // @IsOptional() alone still rejects "" (it only skips null/undefined), and
+  // the frontend's controlled input always sends a string — so validate the
+  // email format only when one was actually provided.
+  @ApiPropertyOptional({ example: 'amina.hassan@mail.co.tz' })
+  @ValidateIf((o: CreateTenantDto) => !!o.email)
   @IsEmail()
   @MaxLength(255)
-  email: string;
+  email?: string;
 
-  @ApiProperty({ example: '19880412-00145-00001-12', description: 'NIDA number' })
+  @ApiPropertyOptional({ example: '19880412-00145-00001-12', description: 'NIDA number' })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   @MaxLength(100)
-  idNumber: string;
+  idNumber?: string;
 
-  @ApiProperty({ example: 'Pharmacist' })
+  @ApiPropertyOptional({ example: 'Pharmacist' })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   @MaxLength(160)
-  occupation: string;
+  occupation?: string;
 
   @ApiPropertyOptional({ example: 'Juma Hassan', description: 'Next-of-kin name' })
   @IsString()

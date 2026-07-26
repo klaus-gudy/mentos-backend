@@ -10,9 +10,12 @@ import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { LeasesModule } from './leases/leases.module';
+import { MaintenanceModule } from './maintenance/maintenance.module';
 import { MailModule } from './mail/mail.module';
+import { PaymentsModule } from './payments/payments.module';
 import { PropertiesModule } from './properties/properties.module';
 import { RolesModule } from './roles/roles.module';
+import { TechniciansModule } from './technicians/technicians.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { UnitsModule } from './units/units.module';
 import { UsersModule } from './users/users.module';
@@ -36,8 +39,9 @@ import { UsersModule } from './users/users.module';
     TenantsModule,
     LeasesModule,
     InvoicesModule,
-    // PaymentsModule, full invoice mutations (S5)
-    // MaintenanceModule, TechniciansModule (S6)
+    PaymentsModule,
+    TechniciansModule,
+    MaintenanceModule,
     // DocumentsModule, NotificationsModule, TemplatesModule, AuditModule (S7)
     // ReportsModule (S8)
   ],

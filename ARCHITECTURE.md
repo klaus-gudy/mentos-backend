@@ -161,3 +161,46 @@ in the response DTO/serializer we compute the display shape so the contract hold
   since it's inserting historical records (including L-07 "ending" and L-08
   "ended", states `create()` can't produce for a brand-new lease) rather than
   simulating live API calls. See `database/seeds/leases.seeder.ts`.
+
+## 9. Payments & Maintenance (Sprint 5/6 — implemented)
+
+- **Invoice status gains `void`** (Sprint 4 shipped only `due|partial|paid`).
+  The `invoice.update` permission is labeled "Edit / void invoices" in the
+  frontend catalog, but the mock never implements either — both are built
+  here, guarded identically: refused once `balance !== amount`, i.e. once any
+  payment has been recorded. Editing replaces `items` (recomputing
+  amount/balance); voiding just flips status. Neither can be undone through
+  the API — a wrong void means issuing a fresh invoice, on purpose.
+- **`recordPayment` caps at the remaining balance** and creates a `Payment`
+  row, flips the invoice to `partial`/`paid`, all in one transaction
+  (`PaymentsService.record`) — same orchestrator pattern as
+  `LeasesService.create`. `Payment.tenantId` and `Invoice`/`Lease.propertyId`
+  are all denormalized from their parent at creation, never re-derived.
+- **Sequential numbering (`INV-n`, `RC-n`) caps its `MAX()` query at 5000.**
+  The seed data includes one legacy invoice/payment pair (`INV-9001`/`RC-9001`,
+  Amina Hassan's final payment on her ended prior lease L-08) whose numbers
+  belong to an unrelated older block. Without the cap, seeding them would jump
+  every subsequent invoice/payment's numbering to 9002+.
+- **No `technician` RBAC resource exists** in the frontend's `permCatalog` —
+  rather than invent one (the mistake corrected in §7), technician endpoints
+  are gated under the closest existing `maintenance.*` permissions:
+  `maintenance.assign` for creating one (the point of adding a technician is
+  to make them assignable), `maintenance.read` for browsing the directory.
+  There is also **no update endpoint** — the frontend never edits a
+  technician after creation, only lists/filters them, so none was built.
+- **Maintenance state machine** (open → assigned → in_progress → completed →
+  closed) is enforced by `MaintenanceService`, each transition rejecting the
+  wrong prior state — a real improvement over the frontend mock, which
+  writes `status` unconditionally with no ordering check at all.
+- **`maintenance.assign` gates assign + start; `maintenance.close` gates
+  complete + close.** The catalog only has 4 non-read actions for a 5-state
+  machine; "Close with cost" is the literal permission label, and it
+  describes exactly what `completeMaintenance` does (sets status *and* cost)
+  — so that action, and the terminal close after it, share the permission.
+- **`MaintenanceRequest.tenantId` is a point-in-time snapshot** of
+  `unit.tenantId` at submission, not a live reference — if the tenant moves
+  out later, old requests still show who reported them.
+- **Category-to-skill matching is enforced server-side on assign**, not just
+  filtered client-side like the frontend's maintenance detail page does: a
+  technician must be `active` and have the request's category in `skills`, or
+  assignment is rejected.

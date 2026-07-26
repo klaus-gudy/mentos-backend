@@ -1,13 +1,9 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ArrayMinSize, IsArray } from 'class-validator';
 import { monthLabel } from '../../common/date.util';
 import { Invoice, InvoiceStatus } from '../entities/invoice.entity';
 
-/**
- * Frontend-facing invoice shape — mirrors mentos-frontend's `Invoice` exactly.
- * Read-only for now: this table exists in Sprint 4 only to support
- * `createLease`'s auto-generated first invoice. Recording payments, voiding,
- * and multi-item billing land with the full Invoices module in Sprint 5.
- */
+/** Frontend-facing invoice shape — mirrors mentos-frontend's `Invoice` exactly. */
 export class InvoiceResponseDto {
   @ApiProperty({ example: 'INV-1015', description: 'Business code, used as id by frontend' })
   id: string;
@@ -55,7 +51,9 @@ export class InvoiceResponseDto {
 
   static from(invoice: Invoice): InvoiceResponseDto {
     const isOverdue =
-      invoice.status !== InvoiceStatus.Paid && new Date(`${invoice.due}T00:00:00Z`) < new Date();
+      invoice.status !== InvoiceStatus.Paid &&
+      invoice.status !== InvoiceStatus.Void &&
+      new Date(`${invoice.due}T00:00:00Z`) < new Date();
 
     return {
       id: invoice.code,
@@ -75,4 +73,28 @@ export class InvoiceResponseDto {
   static fromMany(invoices: Invoice[]): InvoiceResponseDto[] {
     return invoices.map((i) => InvoiceResponseDto.from(i));
   }
+}
+
+/**
+ * The `invoice.update` permission ("Edit / void invoices") — only allowed
+ * before any payment has been recorded (balance === amount), so editing can
+ * never silently rewrite an amount a tenant has already partially paid against.
+ *
+ * `items` takes the same `[string, number][]` tuple shape the frontend sends
+ * and receives everywhere else (InvoiceResponseDto.items) — validated
+ * manually in InvoicesService.update() rather than via class-validator, which
+ * has no clean way to validate a tuple array's per-position types.
+ */
+export class UpdateInvoiceDto {
+  @ApiPropertyOptional({
+    type: 'array',
+    example: [
+      ['Rent · Jul 2026', 520000],
+      ['Water charge', 15000],
+    ],
+    description: 'Full replacement of the line items; the invoice amount and balance are recomputed',
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  items: [string, number][];
 }

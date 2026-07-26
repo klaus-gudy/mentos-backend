@@ -34,6 +34,11 @@ const INVOICES: SeedInvoice[] = [
   { code: 'INV-1013', tenantCode: 'T-05', leaseCode: 'L-05', propertyCode: 'P-04', issued: '2026-07-01', due: '2026-07-05', amount: 3950000, balance: 1950000, status: InvoiceStatus.Partial, items: [{ label: 'Rent · Jul 2026', amount: 3800000 }, { label: 'Water charge', amount: 150000 }] },
   { code: 'INV-1014', tenantCode: 'T-06', leaseCode: 'L-06', propertyCode: 'P-05', issued: '2026-07-01', due: '2026-07-05', amount: 1320000, balance: 1320000, status: InvoiceStatus.Due, items: [{ label: 'Rent · Jul 2026', amount: 1200000 }, { label: 'Service charge', amount: 120000 }] },
   { code: 'INV-1007', tenantCode: 'T-07', leaseCode: 'L-07', propertyCode: 'P-01', issued: '2026-07-01', due: '2026-07-05', amount: 500000, balance: 0, status: InvoiceStatus.Paid, items: [{ label: 'Rent · Jul 2026', amount: 500000 }] },
+  // Legacy invoice from Amina Hassan's (T-01) prior, now-ended lease (L-08 at
+  // U-602/P-06) — the payments seed references it (RC-9001). Its numbering
+  // belongs to an older, unrelated block; see InvoicesService.createForLease's
+  // MAX() cap for why new invoices don't continue from 9001.
+  { code: 'INV-9001', tenantCode: 'T-01', leaseCode: 'L-08', propertyCode: 'P-06', issued: '2024-02-01', due: '2024-02-05', amount: 500000, balance: 0, status: InvoiceStatus.Paid, items: [{ label: 'Rent · Feb 2024', amount: 500000 }] },
 ];
 
 export const invoicesSeeder: Seeder = {

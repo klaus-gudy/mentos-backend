@@ -2,7 +2,12 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { UnitsService } from '../units/units.service';
-import { BlacklistTenantDto, CreateTenantDto, TenantResponseDto, UpdateTenantDto } from './dto/tenant.dto';
+import {
+  BlacklistTenantDto,
+  CreateTenantDto,
+  TenantResponseDto,
+  UpdateTenantDto,
+} from './dto/tenant.dto';
 import { Tenant, TenantStatus } from './entities/tenant.entity';
 
 @Injectable()
@@ -35,16 +40,16 @@ export class TenantsService {
       tenant.code = `T-${String(seq).padStart(2, '0')}`;
       tenant.name = dto.fullName;
       tenant.phone = dto.phone;
-      tenant.email = dto.email;
+      tenant.email = dto.email ?? '';
       tenant.status = TenantStatus.Prospective;
       tenant.since = new Date().toISOString().slice(0, 10);
       tenant.unitId = null;
       tenant.propertyId = null;
       tenant.org = '';
-      tenant.occupation = dto.occupation;
+      tenant.occupation = dto.occupation ?? '';
       tenant.employer = '';
       tenant.idType = 'NIDA';
-      tenant.idNumber = dto.idNumber;
+      tenant.idNumber = dto.idNumber ?? '';
       tenant.kin = dto.emName
         ? [dto.emName, dto.emRelation, dto.emContact].filter(Boolean).join(' · ')
         : '—';
