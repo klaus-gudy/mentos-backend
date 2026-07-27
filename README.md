@@ -95,6 +95,41 @@ npm run migration:revert
 npm run seed                  # idempotent, dependency-ordered
 ```
 
+## Testing
+
+`test/*.e2e-spec.ts` are real integration tests — they boot the actual Nest
+app and hit it over HTTP (via `supertest`), against a **dedicated `nyumba_test`
+database and `nyumba-documents-test` MinIO bucket**, never the dev ones. This
+matters: earlier manual browser testing against the dev database accidentally
+terminated a real lease with no way to undo it — these tests exist so that
+kind of regression gets caught by the suite instead.
+
+One-time setup:
+
+```bash
+createdb -h localhost -U nyumba nyumba_test          # or: psql -c "CREATE DATABASE nyumba_test OWNER nyumba;"
+DB_NAME=nyumba_test npm run migration:run
+DB_NAME=nyumba_test npm run seed                     # optional — the specs create their own fixtures either way
+```
+
+Then, any time:
+
+```bash
+npm run test:e2e
+```
+
+Coverage today (`test/`): payment recording (balance math, capping, status
+transitions), lease termination (occupancy/tenant side effects, refusing a
+double-terminate), and document upload (multipart upload, file-type
+allowlist, owner-scoped listing, download returns the real bytes, delete).
+Every spec creates its own tenants/properties/leases via the API rather than
+depending on seeded IDs, so the suite is safe to re-run repeatedly without
+resetting the test database.
+
+`npm test` (plain Jest, no config) intentionally does **not** pick up
+`*.e2e-spec.ts` — there's no unit-test suite yet, so it currently finds
+nothing to run.
+
 ## Scripts
 
 | Script | Purpose |
@@ -102,5 +137,6 @@ npm run seed                  # idempotent, dependency-ordered
 | `start:dev` | Watch-mode dev server |
 | `build` / `start:prod` | Production build & run |
 | `lint` / `format` / `typecheck` | Quality gates |
-| `test` | Jest |
+| `test` | Jest (unit — none written yet) |
+| `test:e2e` | Integration tests against `nyumba_test` — see **Testing** above |
 | `migration:*` / `seed` | Database lifecycle |
