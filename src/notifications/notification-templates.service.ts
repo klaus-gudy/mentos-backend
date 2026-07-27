@@ -17,6 +17,17 @@ export class NotificationTemplatesService {
     return TemplateResponseDto.fromMany(rows);
   }
 
+  /**
+   * Raw entities (not the DTO shape) for internal trigger firing —
+   * NotificationsService.fireTrigger() uses these directly. English only:
+   * there's no per-notification language preference yet, so auto-fired
+   * in-app notifications always use the English version of a template,
+   * matching how the notification list UI has no language toggle either.
+   */
+  async findByTrigger(triggerKey: string): Promise<NotificationTemplate[]> {
+    return this.templates.find({ where: { triggerKey, language: TemplateLanguage.English } });
+  }
+
   // Always creates an English + Swahili pair tied to one trigger, matching
   // the frontend's "Create in both languages" template dialog. Returns the
   // English row, same as the mock it replaces.

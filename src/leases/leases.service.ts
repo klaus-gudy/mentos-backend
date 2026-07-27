@@ -1,8 +1,10 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { addMonthsMinusDay, monthLabel } from '../common/date.util';
+import { addMonthsMinusDay, dayLabel, monthLabel } from '../common/date.util';
 import { DocumentsService } from '../documents/documents.service';
+import { NotificationType } from '../notifications/entities/notification.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 import { TenantStatus } from '../tenants/entities/tenant.entity';
 import { TenantsService } from '../tenants/tenants.service';
 import { UnitStatus } from '../units/entities/unit.entity';
@@ -23,6 +25,7 @@ export class LeasesService {
     private readonly units: UnitsService,
     private readonly invoices: InvoicesService,
     private readonly documents: DocumentsService,
+    private readonly notifications: NotificationsService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -60,7 +63,7 @@ export class LeasesService {
     const deposit = dto.deposit ?? parseFloat(unit.deposit.toString());
     const end = addMonthsMinusDay(dto.start, dto.duration);
 
-    return this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       const repo = manager.getRepository(Lease);
       await manager.query('LOCK TABLE leases IN SHARE ROW EXCLUSIVE MODE');
 
@@ -119,6 +122,22 @@ export class LeasesService {
 
       return LeaseResponseDto.from(saved);
     });
+
+    // Fired after commit — same fire-and-forget philosophy as the tenant-
+    // onboarded trigger in TenantsService.create().
+    void this.notifications.fireTrigger(
+      'lease-created',
+      {
+        tenant_name: tenant.name,
+        unit: unit.no,
+        property_name: unit.property?.name ?? '',
+        start_date: dayLabel(result.start),
+      },
+      NotificationType.Lease,
+      'file-text',
+    );
+
+    return result;
   }
 
   async findAll(): Promise<LeaseResponseDto[]> {

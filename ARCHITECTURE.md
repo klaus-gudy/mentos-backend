@@ -256,3 +256,54 @@ in the response DTO/serializer we compute the display shape so the contract hold
   transaction's own `manager`. Since the read ran before the transaction
   committed, it saw nothing and threw a 404 on every successful upload. Fixed
   by re-querying through `manager` itself before returning.
+
+## 11. Audit log (Sprint 7 — implemented)
+
+- **Automatic, not per-endpoint.** `AuditInterceptor` is global (`APP_INTERCEPTOR`)
+  and derives `resource`/`action` from the **same** `@Permissions('resource.action')`
+  metadata already on every gated route via `Reflector` — no controller had to
+  be touched. Coverage is retroactive across all ~80 endpoints built before
+  this module existed. A route can opt out entirely with `@AuditSkip()`
+  (used on `AuditController` itself, so browsing the log doesn't recursively
+  fill it with "viewed audit" entries).
+- **Reads are logged too, but only single-record ones.** A GET is logged when
+  its route has a `:code` param (viewing one unit, one tenant…); a list GET
+  (`GET /units`) is skipped by default — routine browsing would otherwise
+  dwarf every meaningful mutation. This is the literal reading of "who viewed
+  what": a specific "what", not a page load.
+- **Guard-level denials can't reach an interceptor.** Nest's request lifecycle
+  runs Guards before Interceptors, so a `ForbiddenException` thrown by
+  `PermissionsGuard` never enters `AuditInterceptor`'s `catchError` — the
+  observable chain around `next.handle()` never starts. `PermissionsGuard`
+  therefore logs denied attempts itself (`AuditOutcome.Denied`), the one
+  scenario this module's interceptor structurally cannot cover.
+- **A real Postgres SEQUENCE (`audit_log_code_seq`), not MAX(code)+1 under a
+  table lock** — the pattern every other module uses for its business codes.
+  That's fine for entities created rarely (leases, tenants); this table is
+  written on nearly every request, and a per-write lock would serialize all
+  API traffic through it. `nextval()` increments atomically with no lock.
+- **A transaction/envelope bug caught in testing:** the interceptor's `tap()`
+  callback receives the value **after** `ResponseInterceptor` (registered in
+  `main.ts`) has already wrapped it as `{success, data, timestamp}` — so
+  `value.id` / `value.user` looked one level too shallow, and a fresh login's
+  audit entry showed actor "Anonymous" instead of the signing-in user's name.
+  Fixed with a one-line unwrap (`'success' in value && 'data' in value` →
+  use `value.data`) before any extraction runs.
+- **A second bug, same testing pass:** `resourceId` resolution originally
+  checked route params named `code`, `invoiceCode`, and `propertyCode` in that
+  order. For a nested create (`POST /properties/:propertyCode/units`), that
+  matched the **parent** property's code, not the unit actually being
+  created — "created unit P-01" instead of "created unit U-107". Fixed by
+  dropping the parent-scoping param names entirely: `:code` alone identifies
+  a target record on every route in this codebase; nested creates correctly
+  fall through to the response body's `id` instead.
+- **Resource/action taxonomy is deliberately not a new vocabulary** — it's
+  `permCatalog`'s existing `resource.action` keys, and icons are looked up
+  from that same catalog (`audit-icons.ts`), so a unit's audit entries use
+  the identical icon the Units nav item does. `technician` and `auth` have
+  no catalog resource (§9's note on technicians; `auth` never needed one) and
+  get small fallback mappings instead of a forced fit into the RBAC catalog.
+- **Actor identity is snapshotted** (`actorName`/`actorEmail` columns, not
+  just the `actorUserId` FK) so historical entries still read correctly after
+  a rename, and survive the user being deleted (`ON DELETE SET NULL`) —
+  this table is a historical record, not a live join.

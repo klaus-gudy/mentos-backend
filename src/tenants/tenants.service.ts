@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
+import { NotificationType } from '../notifications/entities/notification.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 import { UnitsService } from '../units/units.service';
 import {
   BlacklistTenantDto,
@@ -16,6 +18,7 @@ export class TenantsService {
     @InjectRepository(Tenant)
     private readonly tenants: Repository<Tenant>,
     private readonly units: UnitsService,
+    private readonly notifications: NotificationsService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -26,7 +29,7 @@ export class TenantsService {
    * `prospective` with no unit until a lease occupies one (Sprint 4).
    */
   async create(dto: CreateTenantDto): Promise<TenantResponseDto> {
-    return this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       const repo = manager.getRepository(Tenant);
       await manager.query('LOCK TABLE tenants IN SHARE ROW EXCLUSIVE MODE');
 
@@ -58,6 +61,17 @@ export class TenantsService {
       const saved = await repo.save(tenant);
       return TenantResponseDto.from(saved);
     });
+
+    // Fired after commit, deliberately not awaited-for-failure: a
+    // notification hiccup must never fail the onboarding it's describing.
+    void this.notifications.fireTrigger(
+      'tenant-onboarded',
+      { tenant_name: result.name },
+      NotificationType.System,
+      'user-plus',
+    );
+
+    return result;
   }
 
   async findAll(): Promise<TenantResponseDto[]> {

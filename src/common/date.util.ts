@@ -6,6 +6,12 @@ export function monthLabel(iso: string): string {
   return `${MONTHS[month - 1]} ${year}`;
 }
 
+/** "2026-07-01" → "01 Jul 2026" — matches the frontend's display-date convention, for human-readable notification text. */
+export function dayLabel(iso: string): string {
+  const [year, month, day] = iso.split('-');
+  return `${day} ${MONTHS[Number(month) - 1]} ${year}`;
+}
+
 /**
  * Adds `months` to an ISO date and subtracts one day — the standard lease-term
  * convention (a 12-month lease starting Jan 1 ends Dec 31, not Jan 1 next

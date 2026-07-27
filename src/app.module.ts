@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { AuditModule } from './audit/audit.module';
+import { AuditInterceptor } from './audit/audit.interceptor';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
@@ -32,6 +34,7 @@ import { UsersModule } from './users/users.module';
     }),
     DatabaseModule,
     StorageModule,
+    AuditModule,
     MailModule,
     HealthModule,
     // Domain modules land here per sprint:
@@ -48,15 +51,16 @@ import { UsersModule } from './users/users.module';
     MaintenanceModule,
     NotificationsModule,
     DocumentsModule,
-    // AuditModule (S7)
     // ReportsModule (S8)
   ],
   providers: [
-    // Order matters: authenticate first, then check permissions. Both are
-    // global so every route added in a later sprint is protected by default —
-    // opt out with @Public(), opt in to RBAC with @Permissions().
+    // Order matters: authenticate first, then check permissions, then audit.
+    // All three are global so every route added later is covered by
+    // default — opt out of auth with @Public(), of RBAC with @Permissions(),
+    // of audit logging with @AuditSkip().
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
+    { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
   ],
 })
 export class AppModule {}

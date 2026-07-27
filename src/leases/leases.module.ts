@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DocumentsModule } from '../documents/documents.module';
 import { InvoicesModule } from '../invoices/invoices.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { UnitsModule } from '../units/units.module';
 import { Lease } from './entities/lease.entity';
@@ -15,6 +16,7 @@ import { LeasesService } from './leases.service';
     UnitsModule,
     InvoicesModule,
     DocumentsModule,
+    NotificationsModule,
   ],
   controllers: [LeasesController],
   providers: [LeasesService],
