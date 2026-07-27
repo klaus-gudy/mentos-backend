@@ -204,3 +204,55 @@ in the response DTO/serializer we compute the display shape so the contract hold
   filtered client-side like the frontend's maintenance detail page does: a
   technician must be `active` and have the request's category in `skills`, or
   assignment is rejected.
+
+## 10. Documents (Sprint 7 — implemented)
+
+- **Real files, not fabricated metadata.** The frontend's `uploadDocument`
+  mock never touches an actual file — it invents a random size string
+  ("1.2 MB") and stores none of the bytes. This module stores real files in
+  S3-compatible object storage (MinIO in dev) via `StorageService`
+  (`src/storage/`), with only metadata plus a `storageKey` pointer in
+  Postgres. `sizeBytes` is the real byte count; `type` (`pdf`/`img`) is
+  derived from `mimeType`, never stored redundantly.
+- **Polymorphic single owner.** A `Document` has exactly one non-null owner
+  FK among `propertyId`/`unitId`/`tenantId`/`leaseId`/`invoiceId`/`paymentId`/
+  `maintenanceRequestId` — chosen over a generic `ownerType`/`ownerId` pair so
+  every link stays a real, indexed FK with cascade-delete, consistent with
+  how this codebase has handled every other cross-entity reference. The
+  invariant ("exactly one set") is enforced in `DocumentsService`, not a DB
+  constraint — matching how Lease's Tenant+Unit+Property linkage is also
+  app-enforced rather than SQL-enforced.
+- **`owner` (the frontend's display field) is computed, not stored** — and
+  its exact format was reverse-engineered from the seed's eight documents,
+  not designed from scratch: a unit-scoped document (direct, or reached via a
+  lease/maintenance request) shows `"{property.code} · {unit.no}"`; a bare
+  property, tenant, or invoice shows its own code; a **payment**-owned
+  document shows its **invoice's** code (matching the seed's receipt example
+  exactly — a receipt's `owner` is the invoice it was paid against, not the
+  payment's own code).
+- **Auto-generated lease agreement.** `LeasesService.create()` calls
+  `DocumentsService.generateLeaseAgreement()` inside its existing transaction
+  (same one that creates the invoice and occupies the unit) — a real PDF
+  rendered from the lease's actual terms (tenant, unit, property, rent,
+  deposit, dates, and whichever free-text terms are present), via `pdfkit`
+  (`documents/lease-agreement.pdf.ts`). It commits or rolls back with
+  everything else in that transaction, so a lease is never created without
+  its agreement or vice versa. This also finally implements `lease.export`
+  ("Export contract"), left unbuilt in Sprint 4 — `GET /leases/:code/agreement`
+  fetches the document this generates.
+- **Upload constraints** (10 MB, PDF/JPG/PNG only) come from the frontend
+  upload dialog's own stated copy ("PDF, JPG or PNG up to 10 MB"), enforced
+  server-side via `FileInterceptor`'s `limits`/`fileFilter` — the frontend
+  never actually enforced this itself (`NewDocumentInput` has no file field
+  at all; the mock's dialog is metadata-only).
+- **`DOCUMENT_CATEGORIES`** (`common/document-categories.ts`) is ported from
+  the upload dialog's `CATS` constant — unlike `MAINTENANCE_CATEGORIES`, this
+  list isn't exported from `lib/types.ts`/`lib/seed.ts`, only defined inline
+  in the documents page component, but it's still the frontend's real closed
+  list (the category `<select>` only ever offers these six).
+- **A transaction-visibility bug caught in testing:** `DocumentsService.upload()`
+  originally re-read the just-inserted row via `this.findOne()`, which uses
+  the class-level injected repository — a different connection than the
+  transaction's own `manager`. Since the read ran before the transaction
+  committed, it saw nothing and threw a 404 on every successful upload. Fixed
+  by re-querying through `manager` itself before returning.

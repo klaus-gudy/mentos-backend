@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { addMonthsMinusDay, monthLabel } from '../common/date.util';
+import { DocumentsService } from '../documents/documents.service';
 import { TenantStatus } from '../tenants/entities/tenant.entity';
 import { TenantsService } from '../tenants/tenants.service';
 import { UnitStatus } from '../units/entities/unit.entity';
@@ -21,6 +22,7 @@ export class LeasesService {
     private readonly tenants: TenantsService,
     private readonly units: UnitsService,
     private readonly invoices: InvoicesService,
+    private readonly documents: DocumentsService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -110,6 +112,11 @@ export class LeasesService {
       saved.tenant = tenant;
       saved.unit = unit;
       saved.property = unit.property;
+
+      // The auto-generated lease agreement PDF — commits or rolls back with
+      // everything else in this transaction.
+      await this.documents.generateLeaseAgreement(manager, saved, tenant, unit, unit.property);
+
       return LeaseResponseDto.from(saved);
     });
   }

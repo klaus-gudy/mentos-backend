@@ -35,4 +35,15 @@ export default () => ({
   },
   /** Base URL of the frontend, used to build invite and reset links. */
   appUrl: env('APP_URL', 'http://localhost:4317'),
+  /** S3-compatible object storage (MinIO in dev) for uploaded/generated documents. */
+  storage: {
+    endpoint: env('S3_ENDPOINT', 'http://localhost:9000'),
+    region: env('S3_REGION', 'us-east-1'),
+    bucket: env('S3_BUCKET', 'nyumba-documents'),
+    accessKeyId: env('S3_ACCESS_KEY', 'nyumba'),
+    secretAccessKey: env('S3_SECRET_KEY', 'nyumba-minio-secret'),
+    // MinIO needs path-style bucket addressing (bucket.endpoint/key resolves
+    // nowhere for it); real AWS S3 would use virtual-hosted style instead.
+    forcePathStyle: env('S3_FORCE_PATH_STYLE', 'true') === 'true',
+  },
 });

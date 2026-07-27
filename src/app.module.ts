@@ -7,6 +7,7 @@ import { PermissionsGuard } from './auth/guards/permissions.guard';
 import configuration from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { DatabaseModule } from './database/database.module';
+import { DocumentsModule } from './documents/documents.module';
 import { HealthModule } from './health/health.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { LeasesModule } from './leases/leases.module';
@@ -16,6 +17,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PropertiesModule } from './properties/properties.module';
 import { RolesModule } from './roles/roles.module';
+import { StorageModule } from './storage/storage.module';
 import { TechniciansModule } from './technicians/technicians.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { UnitsModule } from './units/units.module';
@@ -29,6 +31,7 @@ import { UsersModule } from './users/users.module';
       validate: validateEnv,
     }),
     DatabaseModule,
+    StorageModule,
     MailModule,
     HealthModule,
     // Domain modules land here per sprint:
@@ -44,7 +47,8 @@ import { UsersModule } from './users/users.module';
     TechniciansModule,
     MaintenanceModule,
     NotificationsModule,
-    // DocumentsModule, AuditModule (S7)
+    DocumentsModule,
+    // AuditModule (S7)
     // ReportsModule (S8)
   ],
   providers: [

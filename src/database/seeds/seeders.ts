@@ -1,3 +1,4 @@
+import { documentsSeeder } from './documents.seeder';
 import { invoicesSeeder } from './invoices.seeder';
 import { leasesSeeder } from './leases.seeder';
 import { maintenanceSeeder } from './maintenance.seeder';
@@ -40,4 +41,5 @@ export const seeders: Seeder[] = [
   paymentsSeeder,
   techniciansSeeder,
   maintenanceSeeder,
+  documentsSeeder,
 ];
