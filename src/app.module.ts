@@ -12,6 +12,7 @@ import { InvoicesModule } from './invoices/invoices.module';
 import { LeasesModule } from './leases/leases.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { MailModule } from './mail/mail.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PropertiesModule } from './properties/properties.module';
 import { RolesModule } from './roles/roles.module';
@@ -42,7 +43,8 @@ import { UsersModule } from './users/users.module';
     PaymentsModule,
     TechniciansModule,
     MaintenanceModule,
-    // DocumentsModule, NotificationsModule, TemplatesModule, AuditModule (S7)
+    NotificationsModule,
+    // DocumentsModule, AuditModule (S7)
     // ReportsModule (S8)
   ],
   providers: [
