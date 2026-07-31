@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AuditModule } from './audit/audit.module';
 import { AuditInterceptor } from './audit/audit.interceptor';
 import { AuthModule } from './auth/auth.module';
@@ -18,6 +19,7 @@ import { MailModule } from './mail/mail.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PropertiesModule } from './properties/properties.module';
+import { ReportsModule } from './reports/reports.module';
 import { RolesModule } from './roles/roles.module';
 import { StorageModule } from './storage/storage.module';
 import { TechniciansModule } from './technicians/technicians.module';
@@ -32,6 +34,7 @@ import { UsersModule } from './users/users.module';
       load: [configuration],
       validate: validateEnv,
     }),
+    ScheduleModule.forRoot(),
     DatabaseModule,
     StorageModule,
     AuditModule,
@@ -51,7 +54,7 @@ import { UsersModule } from './users/users.module';
     MaintenanceModule,
     NotificationsModule,
     DocumentsModule,
-    // ReportsModule (S8)
+    ReportsModule,
   ],
   providers: [
     // Order matters: authenticate first, then check permissions, then audit.

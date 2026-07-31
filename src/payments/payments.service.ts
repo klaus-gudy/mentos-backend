@@ -1,8 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { moneyLabel } from '../common/money.util';
 import { Invoice, InvoiceStatus } from '../invoices/entities/invoice.entity';
 import { InvoicesService } from '../invoices/invoices.service';
+import { NotificationType } from '../notifications/entities/notification.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PaymentResponseDto, RecordPaymentDto } from './dto/payment.dto';
 import { Payment } from './entities/payment.entity';
 
@@ -12,6 +15,7 @@ export class PaymentsService {
     @InjectRepository(Payment)
     private readonly payments: Repository<Payment>,
     private readonly invoices: InvoicesService,
+    private readonly notifications: NotificationsService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -70,7 +74,7 @@ export class PaymentsService {
       throw new BadRequestException('Enter a valid amount');
     }
 
-    return this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       const paymentRepo = manager.getRepository(Payment);
       await manager.query('LOCK TABLE payments IN SHARE ROW EXCLUSIVE MODE');
 
@@ -102,5 +106,20 @@ export class PaymentsService {
       saved.tenant = invoice.tenant;
       return PaymentResponseDto.from(saved);
     });
+
+    // Fired after commit — same fire-and-forget philosophy as the
+    // tenant-onboarded / lease-created triggers.
+    void this.notifications.fireTrigger(
+      'payment-received',
+      {
+        tenant_name: invoice.tenant?.name ?? '',
+        amount: moneyLabel(result.amount),
+        property_name: invoice.property?.name ?? '',
+      },
+      NotificationType.Payment,
+      'banknote',
+    );
+
+    return result;
   }
 }

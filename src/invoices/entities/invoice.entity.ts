@@ -74,4 +74,27 @@ export class Invoice extends BaseEntity {
 
   @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
   items: InvoiceLineItem[];
+
+  /**
+   * Set the first time the daily overdue-check job (InvoiceOverdueJob) fires
+   * a notification for this invoice — guards against re-notifying on every
+   * run while the invoice stays overdue. Never cleared once set, even if the
+   * invoice is later paid; that's fine, since a paid invoice can never be
+   * "newly overdue" again on its own due date.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  overdueNotifiedAt: Date | null;
+
+  /**
+   * "overdue" is never stored (see the enum's doc comment) — this is the one
+   * place that computes it, reused by InvoiceResponseDto and ReportsService
+   * so the two can't drift on what "overdue" means.
+   */
+  get isOverdue(): boolean {
+    return (
+      this.status !== InvoiceStatus.Paid &&
+      this.status !== InvoiceStatus.Void &&
+      new Date(`${this.due}T00:00:00Z`) < new Date()
+    );
+  }
 }

@@ -307,3 +307,43 @@ in the response DTO/serializer we compute the display shape so the contract hold
   just the `actorUserId` FK) so historical entries still read correctly after
   a rename, and survive the user being deleted (`ON DELETE SET NULL`) —
   this table is a historical record, not a live join.
+
+## 12. Reports (Sprint 8 — implemented)
+
+- **No entity, no migration, no seeder.** A report is a read-only computed
+  view over data that already exists elsewhere — the first module in this
+  codebase with nothing to persist. `ReportsService` injects the seven
+  entities' repositories directly rather than importing
+  Properties/Units/Tenants/etc. modules, since there's no business logic of
+  theirs to reuse, only aggregation queries of its own.
+- **Ported, not redesigned:** all 10 reports and their exact columns/KPIs
+  come from `mentos-frontend/lib/reports.ts`'s `reportDefs`/`buildReport()` —
+  same 10 report ids, same table shape. The difference is *where* the
+  aggregation runs: the frontend's version operates on datasets the browser
+  already fetched in full (invoices, tenants, units…); this version queries
+  the database directly, so a report doesn't require shipping every record
+  in the system to the client first just to summarize it.
+- **`Invoice.isOverdue` extracted as a getter**, not left as the inline
+  expression `InvoiceResponseDto` used to compute privately. `ReportsService`
+  needed the identical "due date passed, not paid, not void" check for two
+  reports (`rent_collection`, `outstanding_balances`) — a second inline copy
+  would have been the first place these two definitions of "overdue" could
+  have drifted apart.
+- **`GET /reports/:code`, not `/reports/:id`** — despite a report having no
+  database row or generated code, naming the param `:code` (matching every
+  other single-record GET in this codebase) is what makes
+  `AuditInterceptor`'s existing `:code`-based heuristic log report views
+  automatically ("viewed report occupancy_rates") with zero special-casing.
+- **A pre-existing, narrow test flake surfaced while re-running the suite**:
+  each e2e spec file boots its own full `AppModule` (its own DB connection
+  pool) via `test/utils/test-app.ts`; fire-and-forget background writes
+  (`AuditInterceptor`'s audit logging, `NotificationsService.fireTrigger`) can
+  still be in flight when that file's `afterAll` closes its connection,
+  producing "Connection terminated" — caught and logged, not a crash, but it
+  cost one spec a "socket hang up" under full-suite load (reproduced 26/27,
+  then 27/27 clean on immediate re-run, and the file passed 4/4 in isolation
+  every time). Not fixed this pass — noted here because the same
+  fire-and-forget pattern is a live *production* risk too: a real graceful
+  shutdown mid-request could drop an audit entry the same way. Worth hardening
+  later (e.g. tracking in-flight background writes and draining them on
+  shutdown), but out of scope for what Sprint 8 needed to ship.

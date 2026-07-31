@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { NotificationType } from '../notifications/entities/notification.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 import { TechniciansService } from '../technicians/technicians.service';
 import { TechnicianStatus } from '../technicians/entities/technician.entity';
 import { UnitsService } from '../units/units.service';
@@ -12,6 +14,15 @@ import {
 } from './dto/maintenance-request.dto';
 import { MaintenanceRequest, MaintenanceStatus } from './entities/maintenance-request.entity';
 
+/** Matches statusMeta()'s labels on the frontend, for a readable notification body. */
+const STATUS_LABEL: Record<MaintenanceStatus, string> = {
+  [MaintenanceStatus.Open]: 'Open',
+  [MaintenanceStatus.Assigned]: 'Assigned',
+  [MaintenanceStatus.InProgress]: 'In progress',
+  [MaintenanceStatus.Completed]: 'Completed',
+  [MaintenanceStatus.Closed]: 'Closed',
+};
+
 @Injectable()
 export class MaintenanceService {
   constructor(
@@ -19,8 +30,23 @@ export class MaintenanceService {
     private readonly requests: Repository<MaintenanceRequest>,
     private readonly units: UnitsService,
     private readonly technicians: TechniciansService,
+    private readonly notifications: NotificationsService,
     private readonly dataSource: DataSource,
   ) {}
+
+  /** Fired after every status transition below — same fire-and-forget philosophy as the other triggers. */
+  private fireStatusChanged(request: MaintenanceRequest, status: MaintenanceStatus): void {
+    void this.notifications.fireTrigger(
+      'maintenance-status',
+      {
+        tenant_name: request.tenant?.name ?? '',
+        request_title: request.title,
+        status: STATUS_LABEL[status],
+      },
+      NotificationType.Maintenance,
+      'wrench',
+    );
+  }
 
   /**
    * Logs a request against a unit. `tenantId` is whoever occupies the unit
@@ -116,6 +142,7 @@ export class MaintenanceService {
       status: MaintenanceStatus.Assigned,
       assigneeId: technician.id,
     });
+    this.fireStatusChanged(request, MaintenanceStatus.Assigned);
     return this.findOne(code);
   }
 
@@ -130,6 +157,7 @@ export class MaintenanceService {
     }
 
     await this.requests.update(request.id, { status: MaintenanceStatus.InProgress });
+    this.fireStatusChanged(request, MaintenanceStatus.InProgress);
     return this.findOne(code);
   }
 
@@ -147,6 +175,7 @@ export class MaintenanceService {
       status: MaintenanceStatus.Completed,
       cost: dto.cost,
     });
+    this.fireStatusChanged(request, MaintenanceStatus.Completed);
     return this.findOne(code);
   }
 
@@ -161,6 +190,7 @@ export class MaintenanceService {
     }
 
     await this.requests.update(request.id, { status: MaintenanceStatus.Closed });
+    this.fireStatusChanged(request, MaintenanceStatus.Closed);
     return this.findOne(code);
   }
 }

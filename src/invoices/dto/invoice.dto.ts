@@ -50,11 +50,6 @@ export class InvoiceResponseDto {
   items: [string, number][];
 
   static from(invoice: Invoice): InvoiceResponseDto {
-    const isOverdue =
-      invoice.status !== InvoiceStatus.Paid &&
-      invoice.status !== InvoiceStatus.Void &&
-      new Date(`${invoice.due}T00:00:00Z`) < new Date();
-
     return {
       id: invoice.code,
       tenantId: invoice.tenant?.code ?? '',
@@ -65,7 +60,7 @@ export class InvoiceResponseDto {
       due: invoice.due,
       amount: parseFloat(invoice.amount.toString()),
       balance: parseFloat(invoice.balance.toString()),
-      status: isOverdue ? 'overdue' : invoice.status,
+      status: invoice.isOverdue ? 'overdue' : invoice.status,
       items: invoice.items.map((item) => [item.label, item.amount]),
     };
   }
