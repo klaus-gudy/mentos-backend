@@ -9,6 +9,10 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: false });
+  // Without this, Nest never calls onApplicationShutdown — the hook
+  // BackgroundTaskTracker relies on to drain in-flight audit/notification
+  // writes before the DB pool tears down (see that class's doc comment).
+  app.enableShutdownHooks();
   const config = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
 

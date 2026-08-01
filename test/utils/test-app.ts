@@ -15,6 +15,11 @@ import { ResponseInterceptor } from '../../src/common/interceptors/response.inte
 export async function createTestApp(): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app = moduleRef.createNestApplication();
+  // Matches main.ts — without this, `app.close()` in afterAll won't run
+  // onApplicationShutdown, so BackgroundTaskTracker never gets a chance to
+  // drain in-flight audit/notification writes before the pool closes (the
+  // exact "Connection terminated" noise this whole mechanism exists to fix).
+  app.enableShutdownHooks();
 
   const config = app.get(ConfigService);
   app.setGlobalPrefix(config.get<string>('apiPrefix') ?? 'api');

@@ -10,6 +10,7 @@ import type { Request, Response } from 'express';
 import { Observable } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
 import { PERMISSIONS_KEY } from '../auth/decorators/permissions.decorator';
+import { BackgroundTaskTracker } from '../common/background-task-tracker.service';
 import { User } from '../users/entities/user.entity';
 import { AuditService } from './audit.service';
 import { AUDIT_SKIP_KEY } from './decorators/audit-skip.decorator';
@@ -73,6 +74,7 @@ export class AuditInterceptor implements NestInterceptor {
   constructor(
     private readonly reflector: Reflector,
     private readonly audit: AuditService,
+    private readonly tracker: BackgroundTaskTracker,
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
@@ -98,10 +100,20 @@ export class AuditInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       tap((value) => {
-        void this.logOutcome(req, res, actionContext, AuditOutcome.Success, AuditInterceptor.unwrap(value));
+        this.tracker.track(
+          this.logOutcome(
+            req,
+            res,
+            actionContext,
+            AuditOutcome.Success,
+            AuditInterceptor.unwrap(value),
+          ),
+        );
       }),
       catchError((err: unknown) => {
-        void this.logOutcome(req, res, actionContext, AuditOutcome.Error, undefined, err);
+        this.tracker.track(
+          this.logOutcome(req, res, actionContext, AuditOutcome.Error, undefined, err),
+        );
         throw err;
       }),
     );
@@ -236,7 +248,9 @@ export class AuditInterceptor implements NestInterceptor {
     const verb = VERBS[ctx.action] ?? ctx.action;
 
     if (ctx.isAuthAction) {
-      return error ? `attempted to ${ctx.action.replace(/_/g, ' ')} — ${AuditInterceptor.errorMessage(error)}` : verb;
+      return error
+        ? `attempted to ${ctx.action.replace(/_/g, ' ')} — ${AuditInterceptor.errorMessage(error)}`
+        : verb;
     }
 
     const target = resourceId ? `${ctx.resource} ${resourceId}` : ctx.resource;

@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { BackgroundTaskTracker } from '../common/background-task-tracker.service';
 import { NotificationResponseDto, SendNotificationDto } from './dto/notification.dto';
 import { Notification, NotificationType } from './entities/notification.entity';
 import { NotificationTemplatesService } from './notification-templates.service';
@@ -20,6 +21,7 @@ export class NotificationsService {
     @InjectRepository(Notification)
     private readonly notifications: Repository<Notification>,
     private readonly templates: NotificationTemplatesService,
+    private readonly tracker: BackgroundTaskTracker,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -69,9 +71,20 @@ export class NotificationsService {
    *
    * Deliberately fire-and-forget: a notification failing to send must never
    * fail the tenant/lease creation it's describing, same philosophy as
-   * AuditService.record() and MailService.
+   * AuditService.record() and MailService. The resulting promise is handed
+   * to BackgroundTaskTracker rather than left to float, so a graceful
+   * shutdown can wait for it instead of the DB pool closing mid-write.
    */
-  async fireTrigger(
+  fireTrigger(
+    triggerKey: string,
+    vars: Record<string, string>,
+    type: NotificationType,
+    icon?: string,
+  ): void {
+    this.tracker.track(this.doFireTrigger(triggerKey, vars, type, icon));
+  }
+
+  private async doFireTrigger(
     triggerKey: string,
     vars: Record<string, string>,
     type: NotificationType,

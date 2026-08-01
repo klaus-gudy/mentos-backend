@@ -7,6 +7,7 @@ import { AuditInterceptor } from './audit/audit.interceptor';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
+import { BackgroundTaskTrackerModule } from './common/background-task-tracker.module';
 import configuration from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { DatabaseModule } from './database/database.module';
@@ -35,6 +36,7 @@ import { UsersModule } from './users/users.module';
       validate: validateEnv,
     }),
     ScheduleModule.forRoot(),
+    BackgroundTaskTrackerModule,
     DatabaseModule,
     StorageModule,
     AuditModule,
